@@ -1,103 +1,144 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import gym
-import numpy as np
 import argparse
+import numpy as np
 from collections import OrderedDict
-env = gym.make('FrozenLake8x8-v0')
-
-np.set_printoptions(precision=2, suppress=True)
-
-value = OrderedDict()
 
 
-def v_pp():
-    print(np.array(list(value.values())).reshape(env.ncol, env.nrow))
+class ValueFuntion(OrderedDict):
+
+    def __init__(self, env, *args, **kwargs):
+        self.env = env
+        super(ValueFuntion, self).__init__(*args, **kwargs)
+        for s in range(self.env.nS):
+            self[s] = 0
+
+    def __str__(self, *args, **kwargs):
+        if hasattr(env, 'ncol') and hasattr(env, 'nrow'):
+            return np.array_str(np.array(list(self.values())).reshape(env.ncol, env.nrow),
+                                precision=2, suppress_small=True)
+        return super(ValueFuntion, self).__str__(*args, **kwargs)
 
 
-def p_pp(policy):
-    mapping = {
-        0: '<',
-        1: 'v',
-        2: '>',
-        3: '^'
-    }
-    print(np.array(list(map(lambda s: mapping[policy(s)] if env.desc.flatten()[s] != b'H' else 'H',
-                            np.arange(env.nS)))).reshape(env.ncol, env.nrow))
+class TablePolicy(OrderedDict):
+
+    def __init__(self, env):
+        self.env = env
+        for s in range(self.env.nS):
+            self[s] = self.env.action_space.sample()
+
+    def __str__(self, *args, **kwargs):
+        if isinstance(self.env, gym.envs.toy_text.frozen_lake.FrozenLakeEnv):
+            mapping = {
+                0: '<',
+                1: 'v',
+                2: '>',
+                3: '^'
+            }
+            result = np.array_str(np.array([mapping[policy(s)] if env.desc.flatten()[s] != b'H' else 'H'
+                                            for s in range(env.nS)]).reshape(env.ncol, env.nrow),
+                                  precision=2, suppress_small=True)
+            return result
+        return super(TablePolicy, self).__str__(*args, **kwargs)
+
+    def __call__(self, s):
+        return self[s]
 
 
-def greedy_policy(s, gamma=.99):
-    return np.argmax([sum([p * (r + gamma * value[next_s])
-                          for p, next_s, r, done in env.P[s][a]])
-                     for a in range(4)])
+class FrozenLakeOptimalPolicy(OrderedDict):
+
+    def __init__(self, env):
+        self.env = env
+        optimal_policy = [3, 2, 2, 2, 2, 2, 2, 2,
+                         3, 3, 3, 3, 3, 2, 2, 1,
+                         3, 3, 0, 3, 2, 3, 2, 1,
+                         3, 3, 3, 1, 0, 2, 2, 2,
+                         0, 3, 0, 3, 2, 1, 3, 2,
+                         0, 0, 2, 1, 3, 0, 3, 2,
+                         0, 1, 1, 0, 2, 0, 1, 2,
+                         0, 1, 0, 3, 1, 2, 1, 1]
+
+        for s in range(self.env.nS):
+            self[s] = optimal_policy[s]
+
+    def __str__(self, *args, **kwargs):
+        if isinstance(self.env, gym.envs.toy_text.frozen_lake.FrozenLakeEnv):
+            mapping = {
+                0: '<',
+                1: 'v',
+                2: '>',
+                3: '^'
+            }
+            result = np.array_str(np.array([mapping[policy(s)] if env.desc.flatten()[s] != b'H' else 'H'
+                                            for s in range(env.nS)]).reshape(env.ncol, env.nrow),
+                                  precision=2, suppress_small=True)
+            return result
+        return super(FrozenLakeOptimalPolicy, self).__str__(*args, **kwargs)
+
+    def __call__(self, s):
+        return self[s]
 
 
-def next_v(s, gamma=.99):
-    if env.desc.flatten()[s] == b'H':
-        return 0.0
-    elif env.desc.flatten()[s] == b'G':
-        return 0.0
-    nexts = max(sum([p * (r + gamma * value[next_s])
-                 for p, next_s, r, done in env.P[s][a]])
-                for a in range(4))
-    return nexts
-
-
-def value_update(theta=1e-6):
+def value_iteration(env, value, policy, gamma, theta=1e-3):
     delta = np.inf
     while delta > theta:
         delta = 0
-        for s in value.keys():
-            nv = next_v(s)
+        for s in range(env.nS):
+            a = policy(s)
+            nv = sum([p * (r + gamma * value[next_s]) * (not done)
+                      for p, next_s, r, done
+                      in env.P[s][a]])
             delta = max(delta, abs(value[s] - nv))
             value[s] = nv
-        # v_pp()
 
 
-for s, vs in zip(range(env.nS), np.random.normal(scale=1e-2, size=env.nS)):
-    value[s] = vs
-
-value_update()
-
-ep_rewards = []
-for ep in range(5):
-    done = False
-    rewards = []
-    s = env.reset()
-    while not done:
-        #env.render()
-        action = greedy_policy(s)
-        s, reward, done, info = env.step(action)
-        rewards.append(reward)
-    reward = np.sum(rewards)
-    # if reward != 1:
-    #     print("Got reward %.2f in %d steps" % (reward, len(rewards)))
-    #     break
-    # print("Got reward %.2f in %d steps" % (reward, len(rewards)))
-    ep_rewards.append(reward)
-print("Avg reward: %.2f" % np.mean(ep_rewards))
-#env.monitor.close()
-np.save("../hw2/fl_optimal_vf", np.array(list(value.values())))
-v_pp()
-#p_pp(greedy_policy)
-print(list(map(greedy_policy, range(63))))
-
-
+       
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Q-Learning algorithm.')
+    parser = argparse.ArgumentParser(description='Value Iteration algorithm.')
     parser.add_argument('--env', '-e', type=str, default='FrozenLake8x8-v0', nargs='?',
                         help='The environment to use')
-    parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=25000, nargs='?',
+    parser.add_argument('--policy', '-p', type=str, default='', nargs='?',
+                        help='Policy file to use')
+    parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=1000, nargs='?',
                         help='Number of episodes')
     parser.add_argument('--gamma', '-g', metavar='g', type=float, default=0.99, nargs='?',
                         help='Gamma discount factor')
-    parser.add_argument('--alpha', '-a', metavar='a', type=float, default=0.05, nargs='?',
-                        help='Alpha parameter')
     args = parser.parse_args()
 
     env = gym.make(args.env)
-    q = {}
-    for s in range(env.nS):
-        q[s] = np.zeros(env.action_space.n)
 
-    policy = EgreedyPolicy(env, q, e=1.)
-    _ = q_learning(env, q, policy, num_episodes=args.num_episodes, gamma=args.gamma, alpha=args.alpha)
+    value = ValueFuntion(env)
+    
+    if args.policy:
+        policy = TablePolicy(env)
+        with open(args.policy, 'r') as f:
+            for line in f.readlines():
+                s, a = line.split()
+                policy[int(s)] = int(a)
+
+        print("Read policy from file {}".format(args.policy))
+        print(policy)
+    else:
+        assert args.env == "FrozenLake8x8-v0"
+        policy = FrozenLakeOptimalPolicy(env)
+
+    value_iteration(env, value, policy, gamma=args.gamma)
+    print(policy)
+    print(value)
+
+    env.monitor.start('%s-value-iteration-1' % args.env, force=True)
+
+    ep_rewards = []
+    for ep in range(args.num_episodes):
+        done = False
+        R = 0
+        s = env.reset()
+        while not done:
+            #env.render()
+            action = policy[s]
+            s, reward, done, info = env.step(action)
+            R += reward
+        ep_rewards.append(R)
+
+    env.monitor.close()
+    print("Avg rewards over {0} episodes: {1:.3f} +/-{2:.3f}".format(args.num_episodes, np.mean(ep_rewards), np.std(ep_rewards)))

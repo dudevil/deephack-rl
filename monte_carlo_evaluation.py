@@ -84,10 +84,10 @@ def monte_carlo(env, value, policy, num_episodes=10000, gamma=0.99):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Q-Learning algorithm.')
+    parser = argparse.ArgumentParser(description='Monte-Carlo policy evaluation algorithm.')
     parser.add_argument('--env', '-e', type=str, default='FrozenLake8x8-v0', nargs='?',
                         help='The environment to use')
-    parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=25000, nargs='?',
+    parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=50000, nargs='?',
                         help='Number of episodes')
     parser.add_argument('--gamma', '-g', metavar='g', type=float, default=0.99, nargs='?',
                         help='Gamma discount factor')
@@ -101,3 +101,15 @@ if __name__ == "__main__":
     value = ValueFuntion(env)
     value = monte_carlo(env, value, policy, num_episodes=args.num_episodes, gamma=args.gamma)
     print(value)
+    env = gym.make(args.env)
+
+    env.monitor.start('%s-mc-evaluation-1' % args.env, force=True)
+    
+    for i_episode in range(400000):
+        s = env.reset()
+        done = False
+        while not done:
+            #env.render()
+            action = policy(s)
+            s, reward, done, info = env.step(action)
+    env.monitor.close()

@@ -14,7 +14,7 @@ class EgreedyPolicy:
         self.counter = 0
 
     def _update_e(self):
-        self.e = 0.999995 ** self.counter
+        self.e = 0.99999 ** self.counter
 
     def __call__(self, s):
         self._update_e()
@@ -41,7 +41,15 @@ class EgreedyPolicy:
             return result
         return super(EgreedyPolicy, self).__str__(*args, **kwargs)
 
+class GreedyPolicy(EgreedyPolicy):
 
+    def __init__(self, env, q):
+        super(GreedyPolicy, self).__init__(env, q, e=0.)
+
+    def _update_e(self):
+        pass
+
+    
 def q_learning(env, q, policy, num_episodes=100, gamma=0.99, alpha=0.05):
     rewards = []
     for ep in range(num_episodes):
@@ -57,17 +65,17 @@ def q_learning(env, q, policy, num_episodes=100, gamma=0.99, alpha=0.05):
         rewards.append(R)
 
         if ep % 1000 == 0 and ep > 0:
-            print("[%d] Avg reward: %.3f epsilon: %.4f" % (ep, np.mean(rewards[-1000:]), policy.e))
+            print("[{0}] Avg reward: {1:.3f} epsilon: {2:.4f}".format(ep, np.mean(rewards[-1000:]), policy.e))
     return rewards
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Q-Learning algorithm.')
-    parser.add_argument('--env', '-e', type=str, default='FrozenLake8x8-v0', nargs='?',
+    parser.add_argument('--env', '-e', type=str, default='FrozenLake8x8-v0', nargs='?', # FrozenLake8x8-v0
                         help='The environment to use')
-    parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=25000, nargs='?',
+    parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=50000, nargs='?',
                         help='Number of episodes')
-    parser.add_argument('--gamma', '-g', metavar='g', type=float, default=0.99, nargs='?',
+    parser.add_argument('--gamma', '-g', metavar='g', type=float, default=0.995, nargs='?',
                         help='Gamma discount factor')
     parser.add_argument('--alpha', '-a', metavar='a', type=float, default=0.05, nargs='?',
                         help='Alpha parameter')
@@ -80,3 +88,18 @@ if __name__ == "__main__":
 
     policy = EgreedyPolicy(env, q, e=1.)
     _ = q_learning(env, q, policy, num_episodes=args.num_episodes, gamma=args.gamma, alpha=args.alpha)
+
+    env = gym.make(args.env)
+    env.monitor.start('%s-qlearning-1' % args.env, force=True)
+    
+    policy = GreedyPolicy(env, q)
+    rewards  = []
+    for i_episode in range(1000):
+        s = env.reset()
+        done = False
+        R = 0.
+        while not done:
+            #env.render()
+            action = policy(s)
+            s, reward, done, info = env.step(action)
+    env.monitor.close()

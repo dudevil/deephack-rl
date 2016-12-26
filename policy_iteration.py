@@ -52,7 +52,7 @@ def policy_update(env, value, policy, gamma, theta=1e-3):
                      for p, next_s, r, done in env.P[s][a])
                  for a in range(env.action_space.n)]
         na = np.argmax(nexts)
-        stable = stable and policy(s) != na
+        stable = stable and (policy[s] == na)
         policy[s] = na
     return stable
 
@@ -74,12 +74,11 @@ def policy_iteration(env, value, policy, gamma=0.9):
     policy_stable = 10
     while policy_stable:
         value_update(env, value, policy, gamma)
-        print(value)
         policy_stable -= policy_update(env, value, policy, gamma)
-        print(policy)
 
+        
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Q-Learning algorithm.')
+    parser = argparse.ArgumentParser(description='Policy Iteration algorithm.')
     parser.add_argument('--env', '-e', type=str, default='FrozenLake8x8-v0', nargs='?',
                         help='The environment to use')
     parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=1000, nargs='?',
@@ -97,16 +96,18 @@ if __name__ == "__main__":
     print(value)
     print(policy)
 
+    env.monitor.start('%s-policy-iteration-1' % args.env, force=True)
     ep_rewards = []
     for ep in range(args.num_episodes):
         done = False
         R = 0
         s = env.reset()
         while not done:
-            env.render()
+            #env.render()
             action = policy[s]
             s, reward, done, info = env.step(action)
             R += reward
         ep_rewards.append(R)
 
-    print("Avg rewards over %d episodes: %.3f +/-%.3f" % (np.mean(ep_rewards), np.std(ep_rewards)))
+    env.monitor.close()
+    print("Avg rewards over {0} episodes: {1:.3f} +/-{2:.3f}".format(args.num_episodes, np.mean(ep_rewards), np.std(ep_rewards)))

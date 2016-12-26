@@ -60,7 +60,6 @@ def td_lambda(env, value, policy, num_episodes=5000, gamma=0.99, alpha=.05, lmbd
         prev_s = s = env.reset()
         z = dict([(s, 0) for s in range(env.nS)])
         while not done:
-            # env.render()
             action = policy(s)
             s, reward, done, info = env.step(action)
             z[prev_s] += 1
@@ -76,7 +75,7 @@ def td_lambda(env, value, policy, num_episodes=5000, gamma=0.99, alpha=.05, lmbd
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Q-Learning algorithm.')
+    parser = argparse.ArgumentParser(description='TD-lambda algorithm.')
     parser.add_argument('--env', '-e', type=str, default='FrozenLake8x8-v0', nargs='?',
                         help='The environment to use')
     parser.add_argument('--num_episodes', '-n', metavar='N', type=int, default=5000, nargs='?',
@@ -97,4 +96,23 @@ if __name__ == "__main__":
     value = ValueFuntion(env)
     value = td_lambda(env, value, policy, num_episodes=args.num_episodes, gamma=args.gamma, lmbda=args.lmbda)
     print(value)
+
+    # submission
+    env.monitor.start('%s-td-lambda-1' % args.env, force=True)
+    rewards  = []
+
+    for i_episode in range(400000):
+        s = env.reset()
+        done = False
+        R = 0.
+        while not done:
+            #env.render()
+            action = policy(s)
+            s, reward, done, info = env.step(action)
+            R += reward
+        rewards.append(R)
+        
+    print("Avg reward over last 10000 episodes: {0:.3f}".format(np.mean(rewards[-10000:])))
+    env.monitor.close()
+
 
